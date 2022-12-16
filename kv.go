@@ -2,10 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"time"
 
 	"gorm.io/gorm"
 )
+
+func KVCron(db *gorm.DB) {
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for {
+			<-ticker.C
+			db.Delete(&KVItem{}, "TTL != -1 AND TTL < ?", time.Now().UnixMilli())
+		}
+	}()
+}
 
 type Key struct {
 	Key string `json:"key"`
@@ -14,6 +26,7 @@ type Key struct {
 type KeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+	TTL   int    `json:"ttl"`
 }
 
 func setKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
@@ -27,14 +40,15 @@ func setKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		var kv KeyValue
+		kv := &KeyValue{TTL: -1}
 		err = json.NewDecoder(r.Body).Decode(&kv)
 		if err != nil {
 			APIError("setKey", err, w, http.StatusBadRequest)
 			return
 		}
+		// TODO: check and fail for bad data
 
-		if err = db.Create(&KVItem{UserID: int(user.ID), Key: kv.Key, Value: kv.Value}).Error; err != nil {
+		if err = db.Create(&KVItem{UserID: int(user.ID), Key: kv.Key, Value: kv.Value, TTL: kv.TTL}).Error; err != nil {
 			APIError("setKey", err, w, http.StatusInternalServerError)
 			return
 		}
@@ -61,12 +75,12 @@ func getKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 		}
 
 		var kvItem KVItem
-		result := db.Where("user_id = ? AND key = ?", user.ID, k.Key).First(&kvItem)
-		if result.Error != nil {
-			APIError("getKey", result.Error, w, http.StatusInternalServerError)
-			return
-		} else if result.RowsAffected == 0 {
+		err = db.Where("user_id = ? AND key = ? AND (ttl = -1 OR ttl >= ?) ", user.ID, k.Key, time.Now().UnixMilli()).First(&kvItem).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		} else if err != nil {
+			APIError("getKey", err, w, http.StatusInternalServerError)
 			return
 		}
 
@@ -75,6 +89,7 @@ func getKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 		json.NewEncoder(w).Encode(&KeyValue{
 			Key:   kvItem.Key,
 			Value: kvItem.Value,
+			TTL:   kvItem.TTL,
 		})
 	}
 }

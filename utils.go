@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -37,11 +38,10 @@ func auth(db *gorm.DB, r *http.Request) (*User, error) {
 
 	var user User
 	result := db.Where("token = ?", reqToken).First(&user)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	if result.RowsAffected == 0 {
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, &authError{}
+	} else if result.Error != nil {
+		return nil, result.Error
 	}
 	return &user, nil
 }

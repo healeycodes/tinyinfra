@@ -14,9 +14,18 @@ type KVItem struct {
 	gorm.Model
 	Key    string
 	Value  string
-	TTL    int // UnixMilli
+	TTL    int // UnixMilli, -1 is do not expire
 	UserID int
 	User   User
+}
+
+type QueueItem struct {
+	gorm.Model
+	Namespace string
+	Message   string
+	VisibleAt int // UnixMilli, item is visible if time > visible_at
+	UserID    int
+	User      User
 }
 
 type GetDBOptions struct {
