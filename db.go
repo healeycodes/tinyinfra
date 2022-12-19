@@ -49,6 +49,6 @@ func getDB(options GetDBOptions) *gorm.DB {
 		panic("failed to connect database")
 	}
 
-	db.AutoMigrate(&User{}, &KVItem{})
+	db.AutoMigrate(&User{}, &KVItem{}, &QueueItem{})
 	return db
 }

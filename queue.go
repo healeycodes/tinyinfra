@@ -26,7 +26,7 @@ type QueueResponse struct {
 }
 
 type QueueMessageToDelete struct {
-	ID        string `json:"id"`
+	ID        uint   `json:"id"`
 	Namespace string `json:"namespace"`
 }
 
@@ -37,20 +37,23 @@ func sendMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		} else if err != nil {
-			APIError("sendMessage", err, w, http.StatusInternalServerError)
+			APIServerError("sendMessage", err, w)
 			return
 		}
 
 		qm := &QueueMessage{}
 		err = json.NewDecoder(r.Body).Decode(&qm)
 		if err != nil {
-			APIError("sendMessage", err, w, http.StatusBadRequest)
+			APIUserError(w, "error parsing JSON")
 			return
 		}
-		// TODO: check and fail for bad data
+		if qm.Namespace == "" || qm.Message == "" {
+			APIUserError(w, "expected namespace and message to be non-empty")
+			return
+		}
 
 		if err = db.Create(&QueueItem{UserID: int(user.ID), Namespace: qm.Namespace, Message: qm.Message, VisibleAt: 0}).Error; err != nil {
-			APIError("sendMessage", err, w, http.StatusInternalServerError)
+			APIServerError("sendMessage", err, w)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -64,21 +67,24 @@ func receiveMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		} else if err != nil {
-			APIError("receiveMessage", err, w, http.StatusInternalServerError)
+			APIServerError("receiveMessage", err, w)
 			return
 		}
 
 		var qr QueueRequest
 		err = json.NewDecoder(r.Body).Decode(&qr)
 		if err != nil {
-			APIError("receiveMessage", err, w, http.StatusBadRequest)
+			APIUserError(w, "error parsing JSON")
 			return
 		}
-		// TODO: handle bad data
+		if qr.Namespace == "" {
+			APIUserError(w, "expected namespace to be non-empty")
+			return
+		}
 
 		var queueItem QueueItem
 		err = db.Transaction(func(tx *gorm.DB) error {
-			if err = tx.Where("user_id = ? AND namespace = ? AND visible_at >= ?",
+			if err = tx.Where("user_id = ? AND namespace = ? AND (visible_at = 0 OR visible_at <= ?)",
 				user.ID, qr.Namespace, time.Now().UnixMilli()).First(&queueItem).Error; err != nil {
 				return err
 			}
@@ -93,7 +99,7 @@ func receiveMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		} else if err != nil {
-			APIError("getKey", err, w, http.StatusInternalServerError)
+			APIServerError("receiveMessage", err, w)
 			return
 		}
 
@@ -114,24 +120,37 @@ func deleteMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		} else if err != nil {
-			APIError("receiveMessage", err, w, http.StatusInternalServerError)
+			APIServerError("deleteMessage", err, w)
 			return
 		}
 
-		var qd QueueMessageToDelete
+		qd := &QueueMessageToDelete{ID: 0}
 		err = json.NewDecoder(r.Body).Decode(&qd)
 		if err != nil {
-			APIError("receiveMessage", err, w, http.StatusBadRequest)
+			APIUserError(w, "error parsing JSON")
 			return
 		}
-		// TODO: handle bad data
+		if qd.Namespace == "" || qd.ID == 0 {
+			APIUserError(w, "expected namespace and id to be non-empty")
+			return
+		}
 
-		err = db.Where("user_id = ? AND namespace = ? AND id = ?", user.ID, qd.Namespace, qd.ID).Delete(&QueueItem{}).Error
+		err = db.Transaction(func(tx *gorm.DB) error {
+			var qi QueueItem
+			if err = tx.Where("user_id = ? AND namespace = ? AND id = ?", user.ID, qd.Namespace, qd.ID).First(&qi).Error; err != nil {
+				return err
+			}
+			err = tx.Delete(&qi).Error
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		} else if err != nil {
-			APIError("getKey", err, w, http.StatusInternalServerError)
+			APIServerError("deleteMessage", err, w)
 			return
 		}
 		w.WriteHeader(http.StatusOK)

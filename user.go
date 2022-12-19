@@ -11,12 +11,12 @@ func createUser(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, err := newToken32()
 		if err != nil {
-			APIError("createUser", err, w, http.StatusInternalServerError)
+			APIServerError("createUser", err, w)
 			return
 		}
 		newUser := &User{Token: token}
 		if err := db.Create(newUser).Error; err != nil {
-			APIError("createUser", err, w, http.StatusInternalServerError)
+			APIServerError("createUser", err, w)
 			return
 		}
 

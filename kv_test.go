@@ -36,6 +36,35 @@ func TestSetKey(t *testing.T) {
 	}
 }
 
+func TestSetKeyUpdate(t *testing.T) {
+	db := getDB(GetDBOptions{testing: true})
+	token := "a"
+	user := &User{Token: token}
+	db.Create(&user)
+	db.Create(&KVItem{Key: "some_key", Value: "some_value", TTL: -1, UserID: int(user.ID)})
+
+	req := httptest.NewRequest(http.MethodGet, "/kv/set", ioutil.NopCloser(strings.NewReader(`{"key": "some_key", "value": "some_value2", "ttl": 1986589728969}`)))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	setKey(db)(w, req)
+
+	res := w.Result()
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Errorf("expected 200 got %v", res.StatusCode)
+	}
+
+	// Check the KVItem was updated
+	var kvItems []KVItem
+	db.Preload("User").Find(&kvItems)
+	if len(kvItems) != 1 {
+		t.Errorf("expected to find one item got %v", len(kvItems))
+	}
+	if kvItems[0].Key != "some_key" || kvItems[0].Value != "some_value2" || kvItems[0].TTL != 1986589728969 || kvItems[0].User.ID != 1 {
+		t.Errorf("expected item to be created correctly got %v %v %v %v", kvItems[0].Key, kvItems[0].Value, kvItems[0].TTL, kvItems[0].User.ID)
+	}
+}
+
 func TestSetKeyBadAuth(t *testing.T) {
 	db := getDB(GetDBOptions{testing: true})
 	token := "a"

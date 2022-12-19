@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -20,9 +21,21 @@ func newToken32() (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(b)), nil
 }
 
-func APIError(route string, err error, w http.ResponseWriter, code int) {
+func APIServerError(route string, err error, w http.ResponseWriter) {
 	log.Printf("%v: error %v", route, err)
-	w.WriteHeader(code)
+	w.WriteHeader(http.StatusInternalServerError)
+}
+
+type UserError struct {
+	Message string `json:"message"`
+}
+
+func APIUserError(w http.ResponseWriter, message string) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&UserError{
+		Message: message,
+	})
 }
 
 type authError struct{}

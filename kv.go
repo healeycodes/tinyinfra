@@ -36,20 +36,30 @@ func setKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		} else if err != nil {
-			APIError("setKey", err, w, http.StatusInternalServerError)
+			APIServerError("setKey", err, w)
 			return
 		}
 
 		kv := &KeyValue{TTL: -1}
 		err = json.NewDecoder(r.Body).Decode(&kv)
 		if err != nil {
-			APIError("setKey", err, w, http.StatusBadRequest)
+			APIUserError(w, "error parsing JSON")
+			return
+		} else if kv.Key == "" {
+			APIUserError(w, "key must not be empty or missing")
 			return
 		}
-		// TODO: check and fail for bad data
 
-		if err = db.Create(&KVItem{UserID: int(user.ID), Key: kv.Key, Value: kv.Value, TTL: kv.TTL}).Error; err != nil {
-			APIError("setKey", err, w, http.StatusInternalServerError)
+		// TODO: Use an upsert instead of a transaction plus two queries!
+		err = db.Transaction(func(tx *gorm.DB) error {
+			var ki KVItem
+			if err = tx.Where("user_id = ? AND key = ?", user.ID, kv.Key).First(&ki).Error; err != nil {
+				return tx.Create(&KVItem{UserID: int(user.ID), Key: kv.Key, Value: kv.Value, TTL: kv.TTL}).Error
+			}
+			return tx.Model(&ki).Updates(KVItem{Value: kv.Value, TTL: kv.TTL}).Error
+		})
+		if err != nil {
+			APIServerError("setKey", err, w)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -63,24 +73,28 @@ func getKey(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		} else if err != nil {
-			APIError("getKey", err, w, http.StatusInternalServerError)
+			APIServerError("getKey", err, w)
 			return
 		}
 
 		var k Key
 		err = json.NewDecoder(r.Body).Decode(&k)
 		if err != nil {
-			APIError("getKey", err, w, http.StatusBadRequest)
+			APIUserError(w, "error parsing JSON")
+			return
+		}
+		if k.Key == "" {
+			APIUserError(w, "expected key to be non-empty")
 			return
 		}
 
 		var kvItem KVItem
-		err = db.Where("user_id = ? AND key = ? AND (ttl = -1 OR ttl >= ?) ", user.ID, k.Key, time.Now().UnixMilli()).First(&kvItem).Error
+		err = db.Where("user_id = ? AND key = ? AND (ttl = -1 OR ttl >= ?)", user.ID, k.Key, time.Now().UnixMilli()).First(&kvItem).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		} else if err != nil {
-			APIError("getKey", err, w, http.StatusInternalServerError)
+			APIServerError("getKey", err, w)
 			return
 		}
 
