@@ -1,0 +1,3 @@
+go test ./...
+pip install requests
+python e2e.py
