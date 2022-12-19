@@ -11,8 +11,8 @@ func main() {
 	http.HandleFunc("/kv/set", setKey(db))
 	http.HandleFunc("/kv/get", getKey(db))
 	http.HandleFunc("/queue/send", sendMessage(db))
-	http.HandleFunc("/queue/receive", sendMessage(db))
-	http.HandleFunc("/queue/delete", sendMessage(db))
+	http.HandleFunc("/queue/receive", receiveMessage(db))
+	http.HandleFunc("/queue/delete", deleteMessage(db))
 
 	KVCron(db)
 	http.ListenAndServe(":8000", nil)
