@@ -1,4 +1,4 @@
-# tinyinfra
+# 🏗 tinyinfra
 
 A key/value store (get/set) and queue (send/receive/delete).
 
