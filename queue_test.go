@@ -63,7 +63,7 @@ func TestReceiveMessage(t *testing.T) {
 	db.Create(user)
 	db.Create(&QueueItem{Namespace: "a", Message: "b", VisibleAt: 0, UserID: int(user.ID)})
 
-	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibleTimeout": 20000}`)))
+	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibilityTimeout": 20000}`)))
 	req.Header.Set("Authorization", "Bearer "+user.Token)
 	w := httptest.NewRecorder()
 	receiveMessage(db)(w, req)
@@ -96,8 +96,9 @@ func TestReceiveMessage(t *testing.T) {
 		t.Errorf("expected to find one item got %v", len(qiItems))
 	}
 	// Allow two seconds of leeway (the time it takes for the API call to happen)
-	if qiItems[0].VisibleAt > int(time.Now().UnixMilli()+(18*1000)) {
-		t.Errorf("expected visiblity timeout to be applied to message got %v", qiItems[0].VisibleAt)
+	if qiItems[0].VisibleAt < int(time.Now().UnixMilli()+(18*1000)) {
+		t.Errorf("expected visibility timeout to be applied to message wanted wanted > %v got %v (diff: %v)",
+			time.Now().UnixMilli()+18000, qiItems[0].VisibleAt, int(time.Now().UnixMilli()+18000)-qiItems[0].VisibleAt)
 	}
 }
 
@@ -107,7 +108,7 @@ func TestReceiveMessageBadAuth(t *testing.T) {
 	db.Create(user)
 	db.Create(&QueueItem{Namespace: "a", Message: "b", VisibleAt: 0, UserID: int(user.ID)})
 
-	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibleTimeout": 20000}`)))
+	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibilityTimeout": 20000}`)))
 	req.Header.Set("Authorization", "Bearer b")
 	w := httptest.NewRecorder()
 	receiveMessage(db)(w, req)
@@ -126,7 +127,7 @@ func TestReceiveEarlierMessage(t *testing.T) {
 	db.Create(&QueueItem{Namespace: "a", Message: "b", VisibleAt: 0, UserID: int(user.ID)})
 	db.Create(&QueueItem{Namespace: "a", Message: "c", VisibleAt: 0, UserID: int(user.ID)})
 
-	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibleTimeout": 20000}`)))
+	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibilityTimeout": 20000}`)))
 	req.Header.Set("Authorization", "Bearer "+user.Token)
 	w := httptest.NewRecorder()
 	receiveMessage(db)(w, req)
@@ -159,8 +160,9 @@ func TestReceiveEarlierMessage(t *testing.T) {
 	}
 
 	// Allow two seconds of leeway (the time it takes for the API call to happen)
-	if qiItem.VisibleAt > int(time.Now().UnixMilli()+(18*1000)) {
-		t.Errorf("expected visiblity timeout to be applied to message got %v", qiItem.VisibleAt)
+	if qiItem.VisibleAt < int(time.Now().UnixMilli()+(18*1000)) {
+		t.Errorf("expected visibility timeout to be applied to message wanted wanted > %v got %v (diff: %v)",
+			time.Now().UnixMilli()+18000, qiItem.VisibleAt, int(time.Now().UnixMilli()+18000)-qiItem.VisibleAt)
 	}
 }
 
@@ -170,7 +172,7 @@ func TestReceiveInvisibleMessage(t *testing.T) {
 	db.Create(user)
 	db.Create(&QueueItem{Namespace: "a", Message: "b", VisibleAt: int(time.Now().UnixMilli() + (18 * 1000)), UserID: int(user.ID)})
 
-	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibleTimeout": 20000}`)))
+	req := httptest.NewRequest(http.MethodGet, "/queue/receive", ioutil.NopCloser(strings.NewReader(`{"namespace": "a", "visibilityTimeout": 20000}`)))
 	req.Header.Set("Authorization", "Bearer "+user.Token)
 	w := httptest.NewRecorder()
 	receiveMessage(db)(w, req)

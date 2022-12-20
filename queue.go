@@ -89,10 +89,7 @@ func receiveMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 				return err
 			}
 			queueItem.VisibleAt = int(time.Now().UnixMilli() + int64(qr.VisibilityTimeout))
-			if err = tx.Save(queueItem).Error; err != nil {
-				return err
-			}
-			return nil
+			return tx.Save(&queueItem).Error
 		})
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {

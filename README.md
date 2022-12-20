@@ -1,8 +1,8 @@
 # 🏗 tinyinfra
 
-A key/value store (get/set) and queue (send/receive/delete).
+A little learning project. A key/value store (get/set) and queue (send/receive/delete).
 
-Build with Go's standard library and [GORM](https://gorm.io/).
+Built with Go's standard library and [GORM](https://gorm.io/).
 
 - GET **/user/new** (returns a token to be used via Bearer authentication for all other endpoints)
   
