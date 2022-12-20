@@ -6,7 +6,8 @@ A little learning project. A key/value store (get/set) and queue (send/receive/d
 
 Built with Go's standard library and [GORM](https://gorm.io/).
 
-- GET **/user/new** (returns a token to be used via Bearer authentication for all other endpoints)
+- GET **/user/new**
+  - (returns `token` to be used via Bearer authentication for all other endpoints)
   
 - POST **/kv/set** `{"key": "some_key", "value": "some_value", "ttl": 1671543399714}`
   - (`ttl` is optional)
