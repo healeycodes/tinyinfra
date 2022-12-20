@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// KVCron clears up expired keys every hour.
+// Note: these expired keys are already "invisible"
 func KVCron(db *gorm.DB) {
 	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
