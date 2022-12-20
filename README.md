@@ -1,3 +1,5 @@
+[![Go](https://github.com/healeycodes/tinyinfra/actions/workflows/go.yml/badge.svg)](https://github.com/healeycodes/tinyinfra/actions/workflows/go.yml)
+
 # 🏗 tinyinfra
 
 A key/value store (get/set) and queue (send/receive/delete).
