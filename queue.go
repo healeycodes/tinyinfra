@@ -71,14 +71,14 @@ func receiveMessage(db *gorm.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		var qr QueueRequest
+		qr := &QueueRequest{VisibilityTimeout: 0}
 		err = json.NewDecoder(r.Body).Decode(&qr)
 		if err != nil {
 			APIUserError(w, "error parsing JSON")
 			return
 		}
-		if qr.Namespace == "" {
-			APIUserError(w, "expected namespace to be non-empty")
+		if qr.Namespace == "" || qr.VisibilityTimeout == 0 {
+			APIUserError(w, "expected namespace to be non-empty and visibilityTimeout to be non-zero")
 			return
 		}
 
