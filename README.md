@@ -23,7 +23,7 @@ Built with Go's standard library and [GORM](https://gorm.io/).
 
 Integration tests (a few tests per endpoints) run with `go test ./...`
 
-End-to-end tests (fairly simple) `python e2e.py`
+End-to-end tests (fairly simple) run with `python e2e.py`
 
 ## Dev
 
